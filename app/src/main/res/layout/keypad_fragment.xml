@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:showIn="@layout/app_bar_keypad" tools:context=".MainActivity">
+
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="12dp"
+        android:layout_marginLeft="30dp">
+        <TextView
+            android:text="Status: "
+            android:textColor="#0000ff"
+            android:gravity="center_vertical"
+            android:singleLine="true"
+            android:textSize="25sp"
+            android:fontFamily="sans-serif-thin"
+            android:textStyle="bold"
+            android:layout_width="120dp"
+            android:layout_height="40dp"/>
+        <TextView
+            android:id="@+id/text_connection_status"
+            android:text="--"
+            android:textColor="#0000ff"
+            android:gravity="center_vertical"
+            android:singleLine="true"
+            android:textSize="25sp"
+            android:fontFamily="sans-serif-thin"
+            android:textStyle="bold"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp" />
+    </LinearLayout>
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginLeft="30dp"
+        android:layout_marginBottom="20dp">
+        <TextView
+            android:text="Door: "
+            android:textColor="#0000ff"
+            android:gravity="center_vertical"
+            android:singleLine="true"
+            android:textSize="25sp"
+            android:fontFamily="sans-serif-thin"
+            android:textStyle="bold"
+            android:layout_width="120dp"
+            android:layout_height="40dp"/>
+        <TextView
+            android:id="@+id/text_door_status"
+            android:text="--"
+            android:textColor="#0000ff"
+            android:gravity="center_vertical"
+            android:singleLine="true"
+            android:textSize="25sp"
+            android:fontFamily="sans-serif-thin"
+            android:textStyle="bold"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp" />
+    </LinearLayout>
+    <View
+        android:id="@+id/divider"
+        android:layout_width="match_parent"
+        android:layout_height="1dip"
+        android:layout_marginBottom="8dip"
+        android:background="@android:color/black" />
+
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="match_parent"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:layoutDirection="ltr"
+        android:layout_height="0dip">
+
+        <Button
+            android:id="@+id/key_1"
+            android:text="1"
+            android:layout_width="0dip"
+            android:layout_weight="1"
+            style="@style/dialpad"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:layout_height="match_parent"/>
+
+        <Button
+            android:id="@+id/key_2"
+            android:text="2"
+            android:layout_width="0dip"
+            android:layout_weight="1"
+            style="@style/dialpad"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:layout_height="match_parent"/>
+
+        <Button
+            android:id="@+id/key_3"
+            android:text="3"
+            android:layout_width="0dip"
+            android:layout_weight="1"
+            style="@style/dialpad"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:layout_height="match_parent"/>
+    </LinearLayout>
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="match_parent"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:layoutDirection="ltr"
+        android:layout_height="0dip">
+
+        <Button
+            android:id="@+id/key_4"
+            android:text="4"
+            android:layout_width="0dip"
+            android:layout_weight="1"
+            style="@style/dialpad"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:layout_height="match_parent"/>
+
+        <Button
+            android:id="@+id/key_5"
+            android:text="5"
+            android:layout_width="0dip"
+            android:layout_weight="1"
+            style="@style/dialpad"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:layout_height="match_parent"/>
+
+        <Button
+            android:id="@+id/key_6"
+            android:text="6"
+            android:layout_width="0dip"
+            android:layout_weight="1"
+            style="@style/dialpad"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:layout_height="match_parent"/>
+    </LinearLayout>
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="match_parent"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:layoutDirection="ltr"
+        android:layout_height="0dip">
+
+        <Button
+            android:id="@+id/key_7"
+            android:text="7"
+            android:layout_width="0dip"
+            android:layout_weight="1"
+            style="@style/dialpad"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:layout_height="match_parent"/>
+
+        <Button
+            android:id="@+id/key_8"
+            android:text="8"
+            android:layout_width="0dip"
+            android:layout_weight="1"
+            style="@style/dialpad"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:layout_height="match_parent"/>
+
+        <Button
+            android:id="@+id/key_9"
+            android:text="9"
+            android:layout_width="0dip"
+            android:layout_weight="1"
+            style="@style/dialpad"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:layout_height="match_parent"/>
+    </LinearLayout>
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="match_parent"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:layoutDirection="ltr"
+        android:layout_height="0dip">
+
+        <Button
+            android:id="@+id/key_cancel"
+            android:text="&#x2717;"
+            android:layout_width="0dip"
+            android:layout_weight="1"
+            style="@style/dialpad"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:layout_height="match_parent"/>
+
+        <Button
+            android:id="@+id/key_0"
+            android:text="0"
+            android:layout_width="0dip"
+            android:layout_weight="1"
+            style="@style/dialpad"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:layout_height="match_parent"/>
+
+        <Button
+            android:id="@+id/key_enter"
+            android:text="&#x2713;"
+            android:layout_width="0dip"
+            android:layout_weight="1"
+            style="@style/dialpad"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:layout_height="match_parent"/>
+    </LinearLayout>
+
+</LinearLayout>
+
