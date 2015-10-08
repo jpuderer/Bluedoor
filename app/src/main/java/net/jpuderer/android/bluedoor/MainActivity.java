@@ -30,8 +30,6 @@ import android.view.MenuItem;
 import android.widget.Toast;
 
 
-// TODO: Update deprecated scan methods.
-// TODO: Only connect to devices that contain the Bluno serial service
 // TODO: Remember details for default device (in case it is out of range)
 // TODO: Add detail to device fragment
 
@@ -48,6 +46,10 @@ import android.widget.Toast;
 // TODO: Allow action from lock screen
 // TODO: Sometimes doesn't notice that the connection has gone away.  Notification still present.  Service stops?
 // TODO: Add crash analytics?  Maybe?
+// TODO: Experiment with turning bluetooth off during fragments and activities
+// TODO: Test what happens when we connect to weird services / devices
+
+// TODO: Only connect to devices that contain the Bluno serial service
 
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener,
@@ -206,7 +208,7 @@ public class MainActivity extends AppCompatActivity
             ft.commit();
         } else if (id == R.id.nav_device) {
             setTitle(R.string.nav_label_bt_device);
-            Fragment fragment = DeviceFragment.newInstance(getDefaultDeviceAddress());
+            Fragment fragment = DeviceFragment.newInstance(getDefaultDeviceAddress(), null);
             FragmentTransaction ft = fragmentManager.beginTransaction();
             ft.replace(R.id.content_main, fragment, TAG_FRAGMENT_DEVICE);
             ft.commit();
