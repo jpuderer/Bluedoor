@@ -39,7 +39,11 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Binder;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
+import android.os.Parcel;
+import android.os.ParcelUuid;
 import android.support.v4.content.LocalBroadcastManager;
 import android.text.TextUtils;
 import android.util.Log;
@@ -64,7 +68,8 @@ public class BluetoothLeService extends Service {
     private BluetoothGatt mBluetoothGatt;
     private int mConnectionState = STATE_DISCONNECTED;
     private int mDoorState = DOOR_STATE_UNKNOWN;
-    private BluetoothGattService mGattService;
+    private BluetoothGattService mGattBlunoService;
+    private BluetoothGattService mGattDeviceInfoService;
     private SharedPreferences mSharedPreferences;
 
     private final IBinder mBinder = new LocalBinder();
@@ -90,20 +95,33 @@ public class BluetoothLeService extends Service {
     public final static String ACTION_UNLOCK =
             "net.jpuderer.android.bluedoor.ACTION_UNLOCK";
 
+    public final static UUID HID_SERVICE_UUID =
+            UUID.fromString("00001812-0000-1000-8000-00805f9b34fb");
     public final static UUID BLUNO_SERVICE_UUID =
             UUID.fromString("0000dfb0-0000-1000-8000-00805f9b34fb");
+    public final static UUID DEVICE_INFORMATION_SERVICE_UUID =
+            UUID.fromString("0000180a-0000-1000-8000-00805f9b34fb");
     public final static UUID SERIAL_PORT_CHARACTERISTIC_UUID =
             UUID.fromString("0000dfb1-0000-1000-8000-00805f9b34fb");
     public static final UUID AT_COMMAND_CHARACTERISTIC_UUID =
             UUID.fromString("0000dfb2-0000-1000-8000-00805f9b34fb");
+    public static final UUID MODEL_NUMBER_STRING_CHARACTERISTIC_UUID =
+            UUID.fromString("00002a24-0000-1000-8000-00805f9b34fb");
+    public static final UUID CLIENT_CHARACTERISTIC_CONFIG_UUID =
+            UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
 
     public static final String PREF_DEFAULT_DEVICE_ADDRESS =
             "PREF_DEFAULT_DEVICE_ADDRESS";
+    public static final String PREF_DEFAULT_DEVICE_NAME =
+            "PREF_DEFAULT_DEVICE_NAME";
 
     // Bluno serial characteristic can not receive more than 17 characters
     // at once.
     public static final int MAX_SERIAL_TX_SIZE = 17;
 
+    // Keys and commands to send to door
+
+    public static final byte GET_STATUS_COMMAND = 0x00;
     public static final byte KEYPAD_COMMAND_KEY_0 = 0x30;
     public static final byte KEYPAD_COMMAND_KEY_1 = 0x31;
     public static final byte KEYPAD_COMMAND_KEY_2 = 0x32;
@@ -116,6 +134,11 @@ public class BluetoothLeService extends Service {
     public static final byte KEYPAD_COMMAND_KEY_9 = 0x39;
     public static final byte KEYPAD_COMMAND_KEY_ENTER = 0x23;
     public static final byte KEYPAD_COMMAND_KEY_CANCEL = 0x2A;
+
+    // Status bytes to receive from door
+    public static final byte LOCK_STATUS_BYTE = 0x61;
+    public static final byte UNLOCK_STATUS_BYTE = 0x62;
+    public static final byte ERROR_STATUS_BYTE = 0x66;
 
     // Implements callback methods for GATT events that the app cares about.  For example,
     // connection change and services discovered.
@@ -137,7 +160,8 @@ public class BluetoothLeService extends Service {
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.d(TAG, "onConnectionStateChange: Disconnected");
                 mConnectionState = STATE_DISCONNECTED;
-                mGattService = null;
+                mGattBlunoService = null;
+                mGattDeviceInfoService = null;
                 Log.i(TAG, "Disconnected from GATT server.");
                 broadcastConnectionUpdate();
                 // Restart Bluetooth scan
@@ -152,9 +176,15 @@ public class BluetoothLeService extends Service {
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             Log.d(TAG, "onServicesDiscovered");
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                mGattService = mBluetoothGatt.getService(BLUNO_SERVICE_UUID);
+                mGattBlunoService = mBluetoothGatt.getService(BLUNO_SERVICE_UUID);
+                mGattDeviceInfoService = mBluetoothGatt.getService(DEVICE_INFORMATION_SERVICE_UUID);
+
+                BluetoothGattCharacteristic characteristic =
+                        mGattBlunoService.getCharacteristic(SERIAL_PORT_CHARACTERISTIC_UUID);
+                mBluetoothGatt.setCharacteristicNotification(characteristic, true);
+                sendSerial(GET_STATUS_COMMAND);
             } else {
-                Log.w(TAG, "onServicesDiscovered received: " + status);
+                Log.w(TAG, "onServicesDiscovered status: " + status);
             }
         }
 
@@ -163,14 +193,20 @@ public class BluetoothLeService extends Service {
                                          BluetoothGattCharacteristic characteristic,
                                          int status) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                // broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
+                if (characteristic.getUuid().equals(SERIAL_PORT_CHARACTERISTIC_UUID)) {
+                    onReceiveSerial(characteristic.getValue());
+                }
+            } else {
+                Log.w(TAG, "onCharacteristicRead status: " + status);
             }
         }
 
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt,
                                             BluetoothGattCharacteristic characteristic) {
-            // broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
+            if (!characteristic.getUuid().equals(SERIAL_PORT_CHARACTERISTIC_UUID))
+                return;
+            onReceiveSerial(characteristic.getValue());
         }
     };
 
@@ -357,6 +393,13 @@ public class BluetoothLeService extends Service {
             Log.w(TAG, "Device not found.  Unable to connect.");
             return false;
         }
+
+        // Disconnect before creating a new connection.  Otherwise, the device seems to remain
+        // connected, but we no longer have a handle to it.
+        if (mConnectionState != STATE_DISCONNECTED) {
+            mBluetoothGatt.disconnect();
+        }
+
         // We want to directly connect to the device, so we are setting the autoConnect
         // parameter to false.
         mBluetoothGatt = device.connectGatt(this, false, mGattCallback);
@@ -392,18 +435,49 @@ public class BluetoothLeService extends Service {
             Log.w(TAG, "BluetoothAdapter not initialized");
             return;
         }
-        if (mGattService == null) {
+        if ((mGattBlunoService == null) || (mGattDeviceInfoService == null)) {
             Log.w(TAG, "Bluetooth service has not been discovered");
             return;
         }
         if (data.length > MAX_SERIAL_TX_SIZE) {
             Log.w(TAG, "Maximum data size exceeded.  Cannot send more than " +
                     MAX_SERIAL_TX_SIZE + " bytes");
+            return;
         }
         BluetoothGattCharacteristic characteristic =
-                mGattService.getCharacteristic(SERIAL_PORT_CHARACTERISTIC_UUID);
+                mGattBlunoService.getCharacteristic(SERIAL_PORT_CHARACTERISTIC_UUID);
         characteristic.setValue(data);
         mBluetoothGatt.writeCharacteristic(characteristic);
+    }
+
+    private void onReceiveSerial(byte[] data) {
+        String message = "???";
+        // The most recent command byte in the buffer is the only one we're interested in
+        for (int i = (data.length - 1); i >= 0; i--) {
+            final byte b = data[i];
+            Log.d(TAG, String.format("byte: 0x%x", b));
+            switch (data[i]) {
+                case LOCK_STATUS_BYTE:
+                    mDoorState = DOOR_STATE_LOCKED;
+                    broadcastDoorUpdate();
+                    message = "Door locked";
+                    break;
+                case UNLOCK_STATUS_BYTE:
+                    mDoorState = DOOR_STATE_UNLOCKED;
+                    broadcastDoorUpdate();
+                    message = "Door unlocked";
+                    break;
+                case ERROR_STATUS_BYTE:
+                    Log.w(TAG, "Error status received from lock.");
+                    break;
+                case ((byte) 0xFF):
+                    // Command start byte, ignore
+                    break;
+                default:
+                    Log.w(TAG, String.format("Unknown command byte received from lock: 0x%x", data[i]));
+                    break;
+            }
+        }
     }
 
     public void lockDoor() {
@@ -411,36 +485,13 @@ public class BluetoothLeService extends Service {
     }
 
     public void unlockDoor() {
-        // FIXME: Doesn't work?  Error bell.
-        //byte[] command = {
-        //        KEYPAD_COMMAND_KEY_1,
-        //        KEYPAD_COMMAND_KEY_2,
-        //        KEYPAD_COMMAND_KEY_3,
-        //        KEYPAD_COMMAND_KEY_4,
-        //        KEYPAD_COMMAND_KEY_ENTER};
-        //sendSerial(command);
-
-        // FIXME: Also doesn't work.  Sounds like it gets only the first character.
-        //sendSerial(KEYPAD_COMMAND_KEY_1);
-        //sendSerial(KEYPAD_COMMAND_KEY_2);
-        //sendSerial(KEYPAD_COMMAND_KEY_3);
-        //sendSerial(KEYPAD_COMMAND_KEY_4);
-        //sendSerial(KEYPAD_COMMAND_KEY_ENTER);
-
-        // FIXME: Hackey as hell.
-        try {
-            sendSerial(KEYPAD_COMMAND_KEY_1);
-            Thread.sleep(150);
-            sendSerial(KEYPAD_COMMAND_KEY_2);
-            Thread.sleep(150);
-            sendSerial(KEYPAD_COMMAND_KEY_3);
-            Thread.sleep(150);
-            sendSerial(KEYPAD_COMMAND_KEY_4);
-            Thread.sleep(150);
-            sendSerial(KEYPAD_COMMAND_KEY_ENTER);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        byte[] command = {
+                KEYPAD_COMMAND_KEY_1,
+                KEYPAD_COMMAND_KEY_2,
+                KEYPAD_COMMAND_KEY_3,
+                KEYPAD_COMMAND_KEY_4,
+                KEYPAD_COMMAND_KEY_ENTER};
+        sendSerial(command);
     }
 
     private String getDefaultDeviceAddress() {

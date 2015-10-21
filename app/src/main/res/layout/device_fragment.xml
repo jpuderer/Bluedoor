@@ -6,6 +6,7 @@
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
     android:paddingBottom="@dimen/activity_vertical_margin"
+    android:clipToPadding="false"
     android:orientation="vertical"
     app:layout_behavior="@string/appbar_scrolling_view_behavior"
     tools:showIn="@layout/app_bar_keypad" tools:context=".MainActivity">
@@ -25,7 +26,8 @@
 
     <LinearLayout
         android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:orientation="vertical"
         android:layout_below="@+id/divider">
         <LinearLayout
@@ -109,16 +111,6 @@
                 android:text="--"/>
         </LinearLayout>
     </LinearLayout>
-
-    <!--
-        Device Name:
-        Device Address:
-        Status:
-        RSSI: -81.0db / 81.0db
-        TX Power:
-        Distance:
-     -->
-
 
     <android.support.design.widget.FloatingActionButton android:id="@+id/select_button"
         android:visibility="invisible"

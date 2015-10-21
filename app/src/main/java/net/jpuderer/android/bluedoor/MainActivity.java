@@ -17,6 +17,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.ParcelUuid;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 import android.view.View;
@@ -29,33 +30,29 @@ import android.support.v7.widget.Toolbar;
 import android.view.MenuItem;
 import android.widget.Toast;
 
+// TODO: Experiment with turning bluetooth off during fragments and activities
 
-// TODO: Remember details for default device (in case it is out of range)
-// TODO: Add detail to device fragment
-
-// TODO: Fix logic for BT being enabled/checking
-// TODO: Move the Bluetooth adapter to the scanning fragment.
-// TODO: Handle graceful failure when scanning on N5?  It won't do low power scanning mode with setReportDelay.
-// onBatchScanResults
-// TODO: Should I be using autoconnect instead of doing a lower power BT-LE scan?
-// TODO: Detect whether the door is open or closed.
+// TODO: Fix notification to show useful status
+// TODO: Preference to set code
 // TODO: Preference to change device name
 // TODO: Security of some kind?  Password/Encryption
 // TODO: Preference to lock device to phone?
+
+// TODO: Fix logic for BT being enabled/checking
+// TODO: Move the Bluetooth adapter to the scanning fragment.
+
+// TODO: Should I be using autoconnect instead of doing a lower power BT-LE scan?
 // TODO: Move strings into resources
 // TODO: Allow action from lock screen
 // TODO: Sometimes doesn't notice that the connection has gone away.  Notification still present.  Service stops?
 // TODO: Add crash analytics?  Maybe?
-// TODO: Experiment with turning bluetooth off during fragments and activities
-// TODO: Test what happens when we connect to weird services / devices
-
-// TODO: Only connect to devices that contain the Bluno serial service
 
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener,
         DeviceFragment.DeviceFragmentListener,
         KeypadFragment.KeypadFragmentListener {
     private static final String TAG = "MainActivity";
+    
     private static final int REQUEST_ENABLE_BT = 1;
 
     private static final String TAG_FRAGMENT_KEYPAD = "keypad";
@@ -208,7 +205,10 @@ public class MainActivity extends AppCompatActivity
             ft.commit();
         } else if (id == R.id.nav_device) {
             setTitle(R.string.nav_label_bt_device);
-            Fragment fragment = DeviceFragment.newInstance(getDefaultDeviceAddress(), null);
+            Fragment fragment = DeviceFragment.newInstance(
+                    getDefaultDeviceAddress(),
+                    getDefaultDeviceName(),
+                    new ParcelUuid(BluetoothLeService .BLUNO_SERVICE_UUID));
             FragmentTransaction ft = fragmentManager.beginTransaction();
             ft.replace(R.id.content_main, fragment, TAG_FRAGMENT_DEVICE);
             ft.commit();
@@ -252,6 +252,7 @@ public class MainActivity extends AppCompatActivity
     @Override
     public void onDeviceSelected(BluetoothDevice device) {
         setDefaultDeviceAddress(device.getAddress());
+        setDefaultDeviceName(device.getName());
     }
 
     @Override
@@ -259,8 +260,12 @@ public class MainActivity extends AppCompatActivity
         KeypadFragment keypad = (KeypadFragment)
                 getFragmentManager().findFragmentByTag(TAG_FRAGMENT_KEYPAD);
         if (keypad != null) {
-            keypad.updateConnectionState(mConnectionState);
-            keypad.updateDoorState(mDoorState);
+            keypad.updateState(mConnectionState, mDoorState);
+        }
+        DeviceFragment deviceUI = (DeviceFragment)
+                getFragmentManager().findFragmentByTag(TAG_FRAGMENT_DEVICE);
+        if (deviceUI != null) {
+            deviceUI.updateState(mConnectionState, mDoorState);
         }
     }
 
@@ -291,10 +296,22 @@ public class MainActivity extends AppCompatActivity
         return prefs.getString(BluetoothLeService.PREF_DEFAULT_DEVICE_ADDRESS, null);
     }
 
+    private String getDefaultDeviceName() {
+        SharedPreferences prefs = getSharedPreferences(
+                getPackageName(), Context.MODE_PRIVATE);
+        return prefs.getString(BluetoothLeService.PREF_DEFAULT_DEVICE_NAME, null);
+    }
+
     private void setDefaultDeviceAddress(String address) {
         SharedPreferences prefs = getSharedPreferences(
                 getPackageName(), Context.MODE_PRIVATE);
         prefs.edit().putString(BluetoothLeService.PREF_DEFAULT_DEVICE_ADDRESS, address).apply();
+    }
+
+    private void setDefaultDeviceName(String name) {
+        SharedPreferences prefs = getSharedPreferences(
+                getPackageName(), Context.MODE_PRIVATE);
+        prefs.edit().putString(BluetoothLeService.PREF_DEFAULT_DEVICE_NAME, name).apply();
     }
 
     private void registerServiceReceiver() {

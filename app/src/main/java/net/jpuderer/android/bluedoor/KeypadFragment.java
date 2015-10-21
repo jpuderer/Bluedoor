@@ -129,22 +129,20 @@ public class KeypadFragment extends Fragment implements View.OnClickListener {
         }
     }
 
-    public void updateConnectionState(int state) {
-        mConnectionState = state;
+    public void updateState(int connectionState, int doorState) {
+        mConnectionState = connectionState;
+        mDoorState = doorState;
         TextView connectionStatus = (TextView) getView().findViewById(R.id.text_connection_status);
         if (mConnectionState == BluetoothLeService.STATE_CONNECTED) {
             connectionStatus.setText("Connected");
         } else {
             connectionStatus.setText("Disconnected");
         }
-    }
 
-    public void updateDoorState(int state) {
-        mDoorState = state;
         TextView doorStatus = (TextView) getView().findViewById(R.id.text_door_status);
-        if (mConnectionState == BluetoothLeService.DOOR_STATE_UNLOCKED) {
+        if (mDoorState == BluetoothLeService.DOOR_STATE_UNLOCKED) {
             doorStatus.setText("Unlocked");
-        } else if (mConnectionState == BluetoothLeService.DOOR_STATE_LOCKED) {
+        } else if (mDoorState == BluetoothLeService.DOOR_STATE_LOCKED) {
             doorStatus.setText("Locked");
         } else {
             doorStatus.setText("--");
