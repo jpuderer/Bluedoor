@@ -8,7 +8,6 @@ import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
-import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
 import android.content.Context;
@@ -28,8 +27,6 @@ import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.Spinner;
 import android.widget.TextView;
-
-import org.w3c.dom.Text;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -53,8 +50,8 @@ public class DeviceFragment extends Fragment implements
     private BluetoothAdapter mBluetoothAdapter;
     private BluetoothLeScanner mBluetoothLeScanner;
 
-    private int mConnectionState = BluetoothLeService.STATE_DISCONNECTED;
-    private int mDoorState = BluetoothLeService.DOOR_STATE_UNKNOWN;
+    private int mConnectionState = DoorlockService.STATE_DISCONNECTED;
+    private int mDoorState = DoorlockService.DOOR_STATE_UNKNOWN;
 
     // Stops scanning after 10 seconds.
     private static final long SCAN_PERIOD = 10000;
@@ -299,7 +296,7 @@ public class DeviceFragment extends Fragment implements
 
     public void scanLeDevice(final boolean enable) {
         Log.d(TAG, "startBluetoothLeScan");
-        if (enable) {
+        if (enable && mBluetoothAdapter.isEnabled()) {
             mLeDeviceListAdapter.clear();
 
             if (!TextUtils.isEmpty(mDefaultDeviceAddress)) {
@@ -337,7 +334,8 @@ public class DeviceFragment extends Fragment implements
                 @Override
                 public void run() {
                     mScanning = false;
-                    mBluetoothLeScanner.stopScan(mLeScanCallback);
+                    if (mBluetoothAdapter.isEnabled())
+                        mBluetoothLeScanner.stopScan(mLeScanCallback);
                     updateProgressSpinner();
                 }
             }, SCAN_PERIOD);
@@ -350,7 +348,8 @@ public class DeviceFragment extends Fragment implements
             mHandler.removeCallbacksAndMessages(null);
             mScanning = false;
             updateProgressSpinner();
-            mBluetoothLeScanner.stopScan(mLeScanCallback);
+            if (mBluetoothAdapter.isEnabled())
+                mBluetoothLeScanner.stopScan(mLeScanCallback);
         }
     }
 
@@ -391,10 +390,10 @@ public class DeviceFragment extends Fragment implements
             // Is the current default device
             } else {
                 mSelectButton.setVisibility(View.INVISIBLE);
-                if (mConnectionState == BluetoothLeService.STATE_CONNECTED) {
+                if (mConnectionState == DoorlockService.STATE_CONNECTED) {
                     status = "Connected";
                     lastSeenTimestamp = System.currentTimeMillis();
-                } else if (mConnectionState == BluetoothLeService.STATE_CONNECTING) {
+                } else if (mConnectionState == DoorlockService.STATE_CONNECTING) {
                     status = "Connecting";
                     lastSeenTimestamp = System.currentTimeMillis();
                 } else {

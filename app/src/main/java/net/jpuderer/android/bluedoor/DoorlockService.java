@@ -25,7 +25,6 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
-import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
@@ -38,28 +37,21 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Binder;
-import android.os.Bundle;
-import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
-import android.os.Parcel;
-import android.os.ParcelUuid;
 import android.support.v4.content.LocalBroadcastManager;
 import android.text.TextUtils;
 import android.util.Log;
-import android.widget.Toast;
 
-import java.util.ArrayList;
+import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
-import java.util.List;
 import java.util.UUID;
 
 /**
  * Service for managing connection and data communication with a GATT server hosted on a
  * given Bluetooth LE device.
  */
-public class BluetoothLeService extends Service {
-    private final static String TAG = BluetoothLeService.class.getSimpleName();
+public class DoorlockService extends Service {
+    private final static String TAG = DoorlockService.class.getSimpleName();
 
     private BluetoothManager mBluetoothManager;
     private BluetoothAdapter mBluetoothAdapter;
@@ -114,14 +106,22 @@ public class BluetoothLeService extends Service {
             "PREF_DEFAULT_DEVICE_ADDRESS";
     public static final String PREF_DEFAULT_DEVICE_NAME =
             "PREF_DEFAULT_DEVICE_NAME";
+    public static final String PREF_LOCK_PASSCODE =
+            "PREF_LOCK_PASSCODE";
+
+    public static final String DEFAULT_LOCK_PASSCODE = "0000";
+
+    // Maximum length we allow for the passcode
+    public static final int MAX_PASSCODE_LENGTH = 16;
 
     // Bluno serial characteristic can not receive more than 17 characters
     // at once.
-    public static final int MAX_SERIAL_TX_SIZE = 17;
+    private static final int MAX_SERIAL_TX_SIZE = 17;
 
     // Keys and commands to send to door
 
     public static final byte GET_STATUS_COMMAND = 0x00;
+    public static final byte KEYPAD_COMMAND_LOCK = 0x41;
     public static final byte KEYPAD_COMMAND_KEY_0 = 0x30;
     public static final byte KEYPAD_COMMAND_KEY_1 = 0x31;
     public static final byte KEYPAD_COMMAND_KEY_2 = 0x32;
@@ -134,6 +134,7 @@ public class BluetoothLeService extends Service {
     public static final byte KEYPAD_COMMAND_KEY_9 = 0x39;
     public static final byte KEYPAD_COMMAND_KEY_ENTER = 0x23;
     public static final byte KEYPAD_COMMAND_KEY_CANCEL = 0x2A;
+
 
     // Status bytes to receive from door
     public static final byte LOCK_STATUS_BYTE = 0x61;
@@ -160,10 +161,12 @@ public class BluetoothLeService extends Service {
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.d(TAG, "onConnectionStateChange: Disconnected");
                 mConnectionState = STATE_DISCONNECTED;
+                mDoorState = DOOR_STATE_UNKNOWN;
                 mGattBlunoService = null;
                 mGattDeviceInfoService = null;
                 Log.i(TAG, "Disconnected from GATT server.");
                 broadcastConnectionUpdate();
+                broadcastDoorUpdate();
                 // Restart Bluetooth scan
                 if (mBluetoothAdapter.isEnabled()) {
                     startBluetoothLeScan();
@@ -253,8 +256,8 @@ public class BluetoothLeService extends Service {
     }
 
     public class LocalBinder extends Binder {
-        BluetoothLeService getService() {
-            return BluetoothLeService.this;
+        DoorlockService getService() {
+            return DoorlockService.this;
         }
     }
 
@@ -298,7 +301,7 @@ public class BluetoothLeService extends Service {
         if (intent != null && mConnectionState == STATE_CONNECTED) {
             if (ACTION_UNLOCK.equals(intent.getAction())) {
                 unlockDoor();
-            } else if (ACTION_UNLOCK.equals(intent.getAction())) {
+            } else if (ACTION_LOCK.equals(intent.getAction())) {
                 lockDoor();
             }
         }
@@ -340,18 +343,18 @@ public class BluetoothLeService extends Service {
 
         mBluetoothAdapter = mBluetoothManager.getAdapter();
         if (mBluetoothAdapter == null) {
-            Log.e(TAG, "Unable to obtain a BluetoothAdapter.");
+            Log.w(TAG, "Unable to obtain a BluetoothAdapter.");
             return false;
         }
 
         if (!mBluetoothAdapter.isEnabled()) {
-            Log.e(TAG, "BluetoothAdapter is not enabled.");
+            Log.i(TAG, "BluetoothAdapter is not enabled.");
             return false;
         }
 
         mBluetoothLeScanner = mBluetoothAdapter.getBluetoothLeScanner();
         if (mBluetoothLeScanner == null) {
-            Log.e(TAG, "Unable to obtain a BluetoothLeScanner.");
+            Log.w(TAG, "Unable to obtain a BluetoothLeScanner.");
             return false;
         }
 
@@ -373,19 +376,6 @@ public class BluetoothLeService extends Service {
         if (mBluetoothAdapter == null || address == null) {
             Log.w(TAG, "BluetoothAdapter not initialized or unspecified address.");
             return false;
-        }
-
-        // Previously connected device.  Try to reconnect.
-        if (mBluetoothDeviceAddress != null && address.equals(mBluetoothDeviceAddress)
-                && mBluetoothGatt != null) {
-            Log.d(TAG, "Trying to use an existing mBluetoothGatt for connection.");
-            if (mBluetoothGatt.connect()) {
-                mConnectionState = STATE_CONNECTING;
-                broadcastConnectionUpdate();
-                return true;
-            } else {
-                return false;
-            }
         }
 
         final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
@@ -451,7 +441,6 @@ public class BluetoothLeService extends Service {
     }
 
     private void onReceiveSerial(byte[] data) {
-        String message = "???";
         // The most recent command byte in the buffer is the only one we're interested in
         for (int i = (data.length - 1); i >= 0; i--) {
             final byte b = data[i];
@@ -460,12 +449,12 @@ public class BluetoothLeService extends Service {
                 case LOCK_STATUS_BYTE:
                     mDoorState = DOOR_STATE_LOCKED;
                     broadcastDoorUpdate();
-                    message = "Door locked";
+                    updateNotification();
                     break;
                 case UNLOCK_STATUS_BYTE:
                     mDoorState = DOOR_STATE_UNLOCKED;
                     broadcastDoorUpdate();
-                    message = "Door unlocked";
+                    updateNotification();
                     break;
                 case ERROR_STATUS_BYTE:
                     Log.w(TAG, "Error status received from lock.");
@@ -481,16 +470,22 @@ public class BluetoothLeService extends Service {
     }
 
     public void lockDoor() {
-        // FIXME: There's a special command that we can use here.
+        sendSerial(KEYPAD_COMMAND_LOCK);
     }
 
     public void unlockDoor() {
-        byte[] command = {
-                KEYPAD_COMMAND_KEY_1,
-                KEYPAD_COMMAND_KEY_2,
-                KEYPAD_COMMAND_KEY_3,
-                KEYPAD_COMMAND_KEY_4,
-                KEYPAD_COMMAND_KEY_ENTER};
+        String passcode = mSharedPreferences.getString(PREF_LOCK_PASSCODE,
+                DEFAULT_LOCK_PASSCODE) + '#';
+        if (passcode.length() <= 1)
+            return;
+
+        byte[] command;
+        try {
+            command = passcode.getBytes("UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            Log.e(TAG, "Unexpected error encoding passcode", e);
+            return;
+        }
         sendSerial(command);
     }
 
@@ -508,26 +503,39 @@ public class BluetoothLeService extends Service {
         NotificationManager notificationManager =
                 (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
 
-        if (mConnectionState != STATE_CONNECTED) {
+        if ((mConnectionState != STATE_CONNECTED) || (mDoorState == DOOR_STATE_UNKNOWN)) {
             notificationManager.cancelAll();
             return;
         }
 
-        Intent intent = new Intent(this, BluetoothLeService.class);
-        intent.setAction(ACTION_UNLOCK);
-        PendingIntent pIntent = PendingIntent.getService(this,
-                (int) System.currentTimeMillis(), intent, 0);
+        Intent intent = new Intent(this, DoorlockService.class);
 
-        // build notification
-        // the addAction re-use the same intent to keep the example short
-        Notification n  = new Notification.Builder(this)
-                .setContentTitle("Connected to Bluetooth device")
-                .setContentText("Press to unlock")
-                .setSmallIcon(android.R.drawable.star_on)
-                .setContentIntent(pIntent)
-                .setOngoing(true)
-                .build();
-
-        notificationManager.notify(0, n);
+        Notification notification;
+        if (mDoorState == DOOR_STATE_LOCKED) {
+            intent.setAction(ACTION_UNLOCK);
+            PendingIntent pIntent = PendingIntent.getService(this,
+                    (int) System.currentTimeMillis(), intent, 0);
+            notification = new Notification.Builder(this)
+                    .setContentTitle("Door is locked")
+                    .setContentText("Press to unlock")
+                    .setSmallIcon(R.drawable.ic_door_locked)
+                    .setColor(getResources().getColor(android.R.color.holo_red_dark))
+                    .setContentIntent(pIntent)
+                    .setOngoing(true)
+                    .build();
+        } else {
+            intent.setAction(ACTION_UNLOCK);
+            PendingIntent pIntent = PendingIntent.getService(this,
+                    (int) System.currentTimeMillis(), intent, 0);
+            notification = new Notification.Builder(this)
+                    .setContentTitle("Door is unlocked")
+                    .setContentText("Press to lock")
+                    .setSmallIcon(R.drawable.ic_door_unlocked)
+                    .setColor(getResources().getColor(android.R.color.holo_green_dark))
+                    .setContentIntent(pIntent)
+                    .setOngoing(true)
+                    .build();
+        }
+        notificationManager.notify(0, notification);
     }
 }

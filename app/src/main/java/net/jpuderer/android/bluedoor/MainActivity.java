@@ -19,7 +19,6 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.ParcelUuid;
 import android.support.v4.content.LocalBroadcastManager;
-import android.util.Log;
 import android.view.View;
 import android.support.design.widget.NavigationView;
 import android.support.v4.view.GravityCompat;
@@ -30,22 +29,16 @@ import android.support.v7.widget.Toolbar;
 import android.view.MenuItem;
 import android.widget.Toast;
 
-// TODO: Experiment with turning bluetooth off during fragments and activities
-
-// TODO: Fix notification to show useful status
-// TODO: Preference to set code
-// TODO: Preference to change device name
-// TODO: Security of some kind?  Password/Encryption
-// TODO: Preference to lock device to phone?
-
-// TODO: Fix logic for BT being enabled/checking
-// TODO: Move the Bluetooth adapter to the scanning fragment.
+// TODO: Dark theme (to match application)
+// TODO: Icon for application
+// TODO: Add *nice* main fragment for lock/unlock/status with animations
+// TODO: Style keypad: Glow/shadow, select/unselect, correct icons for buttons.
+// TODO: Add preference for notifications
+// TODO: Cleanup drawer styling
 
 // TODO: Should I be using autoconnect instead of doing a lower power BT-LE scan?
+// TODO: Make sure that Doze doesn't affect us
 // TODO: Move strings into resources
-// TODO: Allow action from lock screen
-// TODO: Sometimes doesn't notice that the connection has gone away.  Notification still present.  Service stops?
-// TODO: Add crash analytics?  Maybe?
 
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener,
@@ -60,21 +53,17 @@ public class MainActivity extends AppCompatActivity
     private static final String TAG_FRAGMENT_PREFERENCES = "preferences";
 
     private BluetoothAdapter mBluetoothAdapter;
-    private BluetoothLeService mBluetoothLeService;
+    private DoorlockService mBluetoothLeService;
 
-    private int mConnectionState = BluetoothLeService.STATE_DISCONNECTED;
-    private int mDoorState = BluetoothLeService.DOOR_STATE_UNKNOWN;
+    private int mConnectionState = DoorlockService.STATE_DISCONNECTED;
+    private int mDoorState = DoorlockService.DOOR_STATE_UNKNOWN;
 
     // Code to manage Service lifecycle.
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
 
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder service) {
-            mBluetoothLeService = ((BluetoothLeService.LocalBinder) service).getService();
-            if (!mBluetoothLeService.initialize()) {
-                Log.e(TAG, "Unable to initialize Bluetooth");
-                finish();
-            }
+            mBluetoothLeService = ((DoorlockService.LocalBinder) service).getService();
             mBluetoothLeService.broadcastConnectionUpdate();
             mBluetoothLeService.broadcastDoorUpdate();
         }
@@ -90,12 +79,12 @@ public class MainActivity extends AppCompatActivity
         @Override
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
-            if (BluetoothLeService.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
+            if (DoorlockService.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
                 mConnectionState =
-                        intent.getIntExtra(BluetoothLeService.EXTRA_CONNECTION_STATE, 0);
-            } else if (BluetoothLeService.ACTION_DOOR_STATE_CHANGED.equals(action)) {
+                        intent.getIntExtra(DoorlockService.EXTRA_CONNECTION_STATE, 0);
+            } else if (DoorlockService.ACTION_DOOR_STATE_CHANGED.equals(action)) {
                 mDoorState =
-                        intent.getIntExtra(BluetoothLeService.EXTRA_DOOR_STATE, 0);
+                        intent.getIntExtra(DoorlockService.EXTRA_DOOR_STATE, 0);
             }
             onUpdateView();
         }
@@ -146,7 +135,7 @@ public class MainActivity extends AppCompatActivity
 
         registerServiceReceiver();
 
-        Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
+        Intent gattServiceIntent = new Intent(this, DoorlockService.class);
         startService(gattServiceIntent);
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
 
@@ -166,10 +155,6 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    @Override
-    protected void onPause() {
-        super.onPause();
-    }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -208,7 +193,7 @@ public class MainActivity extends AppCompatActivity
             Fragment fragment = DeviceFragment.newInstance(
                     getDefaultDeviceAddress(),
                     getDefaultDeviceName(),
-                    new ParcelUuid(BluetoothLeService .BLUNO_SERVICE_UUID));
+                    new ParcelUuid(DoorlockService.BLUNO_SERVICE_UUID));
             FragmentTransaction ft = fragmentManager.beginTransaction();
             ft.replace(R.id.content_main, fragment, TAG_FRAGMENT_DEVICE);
             ft.commit();
@@ -293,31 +278,31 @@ public class MainActivity extends AppCompatActivity
     private String getDefaultDeviceAddress() {
         SharedPreferences prefs = getSharedPreferences(
                 getPackageName(), Context.MODE_PRIVATE);
-        return prefs.getString(BluetoothLeService.PREF_DEFAULT_DEVICE_ADDRESS, null);
+        return prefs.getString(DoorlockService.PREF_DEFAULT_DEVICE_ADDRESS, null);
     }
 
     private String getDefaultDeviceName() {
         SharedPreferences prefs = getSharedPreferences(
                 getPackageName(), Context.MODE_PRIVATE);
-        return prefs.getString(BluetoothLeService.PREF_DEFAULT_DEVICE_NAME, null);
+        return prefs.getString(DoorlockService.PREF_DEFAULT_DEVICE_NAME, null);
     }
 
     private void setDefaultDeviceAddress(String address) {
         SharedPreferences prefs = getSharedPreferences(
                 getPackageName(), Context.MODE_PRIVATE);
-        prefs.edit().putString(BluetoothLeService.PREF_DEFAULT_DEVICE_ADDRESS, address).apply();
+        prefs.edit().putString(DoorlockService.PREF_DEFAULT_DEVICE_ADDRESS, address).apply();
     }
 
     private void setDefaultDeviceName(String name) {
         SharedPreferences prefs = getSharedPreferences(
                 getPackageName(), Context.MODE_PRIVATE);
-        prefs.edit().putString(BluetoothLeService.PREF_DEFAULT_DEVICE_NAME, name).apply();
+        prefs.edit().putString(DoorlockService.PREF_DEFAULT_DEVICE_NAME, name).apply();
     }
 
     private void registerServiceReceiver() {
         final IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(BluetoothLeService.ACTION_CONNECTION_STATE_CHANGED);
-        intentFilter.addAction(BluetoothLeService.ACTION_DOOR_STATE_CHANGED);
+        intentFilter.addAction(DoorlockService.ACTION_CONNECTION_STATE_CHANGED);
+        intentFilter.addAction(DoorlockService.ACTION_DOOR_STATE_CHANGED);
         LocalBroadcastManager.getInstance(this).registerReceiver(
                 mGattUpdateReceiver, intentFilter);
     }

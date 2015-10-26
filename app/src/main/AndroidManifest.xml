@@ -34,7 +34,7 @@
         </activity>
 
         <service
-            android:name=".BluetoothLeService"
+            android:name=".DoorlockService"
             android:enabled="true" />
 
         <receiver
