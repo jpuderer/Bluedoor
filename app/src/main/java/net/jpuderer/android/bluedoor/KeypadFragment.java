@@ -15,9 +15,6 @@ public class KeypadFragment extends Fragment implements View.OnClickListener {
     private int mConnectionState = DoorlockService.STATE_DISCONNECTED;
     private int mDoorState = DoorlockService.DOOR_STATE_UNKNOWN;
 
-    private static final String ARG_CONNECTION_STATE = "ARG_DEFAULT_DEVICE_ADDRESS";
-    private static final String ARG_DOOR_STATE = "ARG_DEFAULT_DEVICE_ADDRESS";
-
     // Fragments need an empty default contructor
     public KeypadFragment() { }
 

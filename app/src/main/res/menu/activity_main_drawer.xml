@@ -2,6 +2,8 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
     <group android:checkableBehavior="single">
+        <item android:id="@+id/nav_door_control" android:icon="@drawable/ic_door_locked"
+            android:title="@string/nav_label_door_control" />
         <item android:id="@+id/nav_keypad" android:icon="@android:drawable/ic_input_get"
             android:title="@string/nav_label_keypad" />
         <item android:id="@+id/nav_device" android:icon="@android:drawable/ic_menu_info_details"

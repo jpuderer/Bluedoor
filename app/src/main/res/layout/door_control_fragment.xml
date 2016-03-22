@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:orientation="vertical">
+
+    <!--
+         Sadly the preview for this doesn't look nice, due to a bug
+         in the previewer.  Trust me, it's fine.
+         https://code.google.com/p/android/issues/detail?id=172713
+    -->
+    <Button
+        android:id="@+id/lock_button"
+        style="@style/lockButton"
+        android:enabled="false"
+        android:layout_width="200dp"
+        android:layout_height="200dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/lock_button_text"
+        android:layout_marginTop="12dp"
+        android:textSize="40sp"
+        android:textStyle="bold"
+        android:textAllCaps="true" />
+</LinearLayout>

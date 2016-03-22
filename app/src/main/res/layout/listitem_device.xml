@@ -43,6 +43,6 @@
         android:layout_height="wrap_content"
         android:layout_marginRight="10dp"
         android:layout_gravity="right|center_vertical"
-        android:src="@drawable/btn_check_buttonless_on"/>
+        android:src="@drawable/ic_action_select"/>
 
 </LinearLayout>

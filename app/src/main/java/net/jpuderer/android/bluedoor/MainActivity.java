@@ -29,25 +29,16 @@ import android.support.v7.widget.Toolbar;
 import android.view.MenuItem;
 import android.widget.Toast;
 
-// TODO: Dark theme (to match application)
-// TODO: Icon for application
-// TODO: Add *nice* main fragment for lock/unlock/status with animations
-// TODO: Style keypad: Glow/shadow, select/unselect, correct icons for buttons.
-// TODO: Add preference for notifications
-// TODO: Cleanup drawer styling
-
-// TODO: Should I be using autoconnect instead of doing a lower power BT-LE scan?
-// TODO: Make sure that Doze doesn't affect us
-// TODO: Move strings into resources
-
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener,
-        DeviceFragment.DeviceFragmentListener,
-        KeypadFragment.KeypadFragmentListener {
+        DoorControlFragment.DoorControlFragmentListener,
+        KeypadFragment.KeypadFragmentListener,
+        DeviceFragment.DeviceFragmentListener {
     private static final String TAG = "MainActivity";
     
     private static final int REQUEST_ENABLE_BT = 1;
 
+    private static final String TAG_FRAGMENT_DOOR_CONTROL = "door_contorl";
     private static final String TAG_FRAGMENT_KEYPAD = "keypad";
     private static final String TAG_FRAGMENT_DEVICE = "device";
     private static final String TAG_FRAGMENT_PREFERENCES = "preferences";
@@ -182,7 +173,13 @@ public class MainActivity extends AppCompatActivity
         int id = item.getItemId();
         FragmentManager fragmentManager = getFragmentManager();
 
-        if (id == R.id.nav_keypad) {
+        if (id == R.id.nav_door_control) {
+            setTitle(R.string.nav_label_door_control);
+            Fragment fragment = DoorControlFragment.newInstance();
+            FragmentTransaction ft = fragmentManager.beginTransaction();
+            ft.replace(R.id.content_main, fragment, TAG_FRAGMENT_DOOR_CONTROL);
+            ft.commit();
+        } else if (id == R.id.nav_keypad) {
             setTitle(R.string.nav_label_keypad);
             Fragment fragment = KeypadFragment.newInstance();
             FragmentTransaction ft = fragmentManager.beginTransaction();
@@ -241,7 +238,23 @@ public class MainActivity extends AppCompatActivity
     }
 
     @Override
+    public void onLockDoor(boolean lock) {
+        if (mBluetoothLeService == null)
+            return;
+        if (lock) {
+            mBluetoothLeService.lockDoor();
+        } else {
+            mBluetoothLeService.unlockDoor();
+        }
+    }
+
+    @Override
     public void onUpdateView() {
+        DoorControlFragment doorControl = (DoorControlFragment)
+                getFragmentManager().findFragmentByTag(TAG_FRAGMENT_DOOR_CONTROL);
+        if (doorControl != null) {
+            doorControl.updateState(mConnectionState, mDoorState);
+        }
         KeypadFragment keypad = (KeypadFragment)
                 getFragmentManager().findFragmentByTag(TAG_FRAGMENT_KEYPAD);
         if (keypad != null) {
@@ -264,6 +277,8 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onSendCommand(byte b) {
+        if (mBluetoothLeService == null)
+            return;
         mBluetoothLeService.sendSerial(b);
     }
 

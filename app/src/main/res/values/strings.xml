@@ -3,6 +3,7 @@
 
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
+    <string name="nav_label_door_control">Door Control</string>
     <string name="nav_label_keypad">Keypad</string>
     <string name="nav_label_bt_device">Bluetooth Device</string>
     <string name="nav_label_preferences">Preferences</string>
@@ -18,5 +19,6 @@
     <string name="title_devices">BLE Device Scan</string>
     <string name="error_bluetooth_not_supported">Bluetooth not supported.</string>
     <string name="unknown_device">Unknown Device</string>
+    <string name="app_description">BLE Controlled Doorlock</string>
 
 </resources>
